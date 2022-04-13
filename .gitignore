@@ -1,0 +1,8 @@
+pyproject.toml
+setup.cfg
+dist/
+src/pydb.egg-info/
+.DS_Store
+.python-version
+src/pydb/__pycache__/
+tests/
