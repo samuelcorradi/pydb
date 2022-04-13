@@ -1,8 +1,8 @@
 pyproject.toml
 setup.cfg
 dist/
-src/pydb.egg-info/
+src/storagy.egg-info/
 .DS_Store
 .python-version
-src/pydb/__pycache__/
+src/storagy/__pycache__/
 tests/
