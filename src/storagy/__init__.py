@@ -558,3 +558,33 @@ class CSVConn(Conn):
     def _disconnect(self):
         self._handler.disconnect()
         self._handler = None
+
+
+def Factory(driver:str, **kwargs):
+ 
+    localizers = {
+        "sqlserver": SQLServer,
+        "flatfile": FlatFileConn,
+        "excel": ExcelConn,
+        "csv": CSVConn,
+        "dir": DirectoryConn
+    }
+ 
+    if localizers.get(driver, None) is None:
+        raise Exception("Não é possível instanciar um objeto que não existe na lista de Factory.")
+    return localizers[driver](**kwargs)
+
+class Storagy(object):
+
+    def __init__(self, driver:str, **kwargs):
+        self._driver = Factory(driver, **kwargs)
+
+    def all(self):
+        return self._driver.all()
+
+    def field_list(self):
+        return self._driver.field_list()
+
+    def is_empty(self):
+        return self._driver.is_empty()
+
