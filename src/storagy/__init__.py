@@ -1,6 +1,7 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-# import pyodbc
+from numpy import fliplr
+import pyodbc
 import xlrd
 from xlrd.sheet import ctype_text 
 from io import SEEK_END
@@ -44,7 +45,6 @@ class Filepath(str):
     def append_file(self, filename:str)->Filepath:
         return Filepath(self.get_dir() + "/" + filename)
 
-
 class Conn(ABC):
 
     def __init__(self):
@@ -70,8 +70,7 @@ class Conn(ABC):
     def _disconnect(self):
         pass
 
-
-class SQLConn(Conn):
+class SQLServer(Conn):
 
     conn_string = 'DRIVER={ODBC Driver 13 for SQL Server};SERVER=%s;DATABASE=%s;UID=%s;PWD=%s'
 
@@ -88,7 +87,7 @@ class SQLConn(Conn):
         super().__init__()
 
     def _connect(self):
-        return pyodbc.connect(SQLConn.conn_string % (self.host, self.db, self.user, self.pwd))
+        return pyodbc.connect(SQLServer.conn_string % (self.host, self.db, self.user, self.pwd))
 
     def _disconnect(self):
         self.commit()
@@ -298,7 +297,13 @@ class FlatFileConn(Conn):
         super().__init__()
         
     def __str__(self)->str:
-        return str(self._dir_conn) + self._filename
+        return self.get_filepath()
+
+    def get_filepath(self)->str:
+        """
+        ...
+        """
+        return os.path.join(str(self._dir_conn), self._filename)
 
     def get_filename(self)->str:
         return self._filename
@@ -366,6 +371,12 @@ class FlatFileConn(Conn):
         self.connect()
         return self
 
+    def is_empty(self):
+        """
+        Check if the source is empty.
+        """
+        return os.stat(self.get_filepath()).st_size==0
+
 class CSVConn(Conn):
 
     def __init__(self
@@ -375,7 +386,11 @@ class CSVConn(Conn):
         , encode='utf-8'
         , has_header=True
         , delimiter=','
-        , quote='"'):
+        , quote='"'
+        , default_col_name='col{}'):
+        """
+        ...
+        """
         self._path = path
         self._filename = filename
         self._mode = mode
@@ -383,45 +398,149 @@ class CSVConn(Conn):
         self._has_header = has_header
         self._delimiter = delimiter
         self._quote = quote
+        self._default_col_name = default_col_name
         super().__init__()
 
     def eof(self)->bool:
+        """
+        ...
+        """
         return self._handler.eof()
 
+    def get_filepath(self)->str:
+        """
+        ...
+        """
+        return self._handler.get_filepath()
+
     def field_list(self):
-        if self._has_header:
-            self._handler.get_handler().seek(0)
-            reader = csv.reader(self._handler.get_handler(), delimiter=self._delimiter, quotechar=self._quote)
-            r = next(reader)
-            print(r)
-            return r
-
-    def insert(self, data:dict):
-        header = self.field_list()
-        if header:
-            writer = csv.DictWriter(self._handler.get_handler(), fieldnames=header, delimiter=self._delimiter, quotechar=self._quote)
-            writer.writerow(data)
-        else:
-            values = data.values()
-            writer = csv.writer(self._handler.get_handler(), delimiter=self._delimiter, quotechar=self._quote)
-            writer.writerow(values)
-
-    def bulk_insert(self, data:list):
-        header = self.field_list()
-        if header:
-            writer = csv.DictWriter(self._handler.get_handler(), fieldnames=header, delimiter=self._delimiter, quotechar=self._quote)
-            for row in data:
-                writer.writerow(row)
-        else:
-            writer = csv.writer(self._handler.get_handler(), delimiter=self._delimiter, quotechar=self._quote)
-            for row in data:
-                values = row.values()
-                writer.writerow(values)
-
-    def all(self)->list:
-        all = []
+        """
+        If the CSV has header, return the
+        first row. Otherwise create cols
+        name using "_default_col_name" and
+        the number of columns in the CSV.
+        """
         self._handler.get_handler().seek(0)
         reader = csv.reader(self._handler.get_handler(), delimiter=self._delimiter, quotechar=self._quote)
+        row = next(reader)
+        if self._has_header:
+            return row
+        else:
+            return [self._default_col_name.format(i+1) for i in range(len(row))]
+
+    def _list_to_dict(self, data:list):
+        """
+        TODO: criar um metodo para tratar os dados
+        a serem inseridos.
+        """
+        if type(data) is not list:
+            raise Exception("Variable 'data' is not a list. Only lists can be converted to a dictionary.")
+        flist = self.field_list()
+        to_insert = {}
+        for i, colval in enumerate(data):
+            to_insert[flist[i]] = colval 
+        return to_insert
+
+    def _check_dict_keys(self, data_dict:dict, allowed_keys:list):
+        """
+        Dictionaries are used to reference
+        rows of data. If any dictionary
+        key is not part of the field list,
+        it throws an error.
+        """
+        # check if the keys are fields in field list
+        wrong_keys = []
+        keys = data_dict.keys()
+        for k in keys:
+            if k not in allowed_keys:
+                wrong_keys.append(k)
+        return wrong_keys
+
+    def is_empty(self):
+        """
+        Check if the source is empty.
+        """
+        return os.stat(self.get_filepath()).st_size==0
+
+    def insert_list(self, data:list):
+        """
+        ...
+        """
+        # TODO: sera que os valores chegaram na mesma
+        # ordem que foram passados?
+        if type(data) is not list:
+            raise Exception("Data is not a list.")
+        # if CSV has header but the file is empty, write the fields in the first line
+        if self._has_header and self.is_empty():
+            self.insert_list(self.field_list())
+        w = csv.writer(self._handler.get_handler(), delimiter=self._delimiter, quotechar=self._quote)
+        w.writerow(data)
+
+    def insert_dict(self, data:dict):
+        """
+        ...
+        """
+        if type(data) is not dict:
+            raise Exception("The data is not a dictionary.")
+        header = self.field_list()
+        # if CSV has header but the file is empty, write the fields in the first line
+        if self._has_header and self.is_empty():
+            self.insert_list(header)
+        wrong_keys = self._check_dict_keys(data_dict=data, allowed_keys=header)
+        if wrong_keys:
+            raise Exception("The key {} doesn't exists on the field list.".format(wrong_keys[0]))
+        w = csv.DictWriter(self._handler.get_handler(), fieldnames=header, delimiter=self._delimiter, quotechar=self._quote)
+        w.writerow(data)
+
+    def insert(self, data):
+        """
+        ...
+        """
+        if type(data) is dict:
+            self._insert_dict(data) if self._has_header else self._insert_list(data.values())
+        elif type(data) is list:
+            self._insert_list(data.values())
+        else:
+            raise Exception("Data needs to be in a list or dictionaty.")
+
+    def bulk_insert(self, data:list):
+        """
+        ...
+        """
+        if data:
+            # if CSV has header but the file is empty, write the fields in the first line
+            if self._has_header and self.is_empty():
+                self.insert_list(self.field_list())
+            rtype = type(data[0])
+            if rtype is dict:
+                writer = csv.DictWriter(self._handler.get_handler()
+                    , fieldnames=self.field_list()
+                    , delimiter=self._delimiter
+                    , quotechar=self._quote)
+            elif rtype is list:
+                writer = csv.writer(self._handler.get_handler()
+                    , delimiter=self._delimiter
+                    , quotechar=self._quote)
+            else:
+                raise Exception("Data needs to be in a list or dictionaty.")
+            # insert all data usign the right writer
+            for d in data:
+                writer.writerow(d)
+
+    def all(self)->list:
+        """
+        Return all rows in the CSV.
+        If the CSV has header, the
+        header info is excluded from
+        results.
+        """
+        all = []
+        # retorns the file cursor to the first position
+        self._handler.get_handler().seek(0)
+        reader = csv.reader(self._handler.get_handler(), delimiter=self._delimiter, quotechar=self._quote)
+        # if the file has header, jump the first row
+        if self._has_header:
+            next(reader)
         for row in reader:
             all.append(row)
         return all
