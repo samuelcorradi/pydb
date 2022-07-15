@@ -5,4 +5,5 @@ src/storagy.egg-info/
 .DS_Store
 .python-version
 src/storagy/__pycache__/
+src/storagy/conn/__pycache__/
 tests/
