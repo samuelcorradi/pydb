@@ -1,4 +1,3 @@
-from pandas import ExcelFile
 from storagy.conn import Conn as Super
 from storagy.conn.directory import Conn as DirectoryConn
 from abc import ABC
