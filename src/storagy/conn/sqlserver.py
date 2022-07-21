@@ -82,7 +82,6 @@ class Conn(Super):
         r = len(self._cursor.fetchall())==0
         return r
         
-
     def query(self, sql:str, data:list=None):
         if not self._cursor:
             self.open()
@@ -98,18 +97,17 @@ class Conn(Super):
         self.close()
 
     def resize(self
-        , tablename:str
         , fieldname:str
         , size:int):
         if not size:
             return
         if size>4000:
             size = 'MAX'
-        sql = "ALTER TABLE [{}] ALTER COLUMN [{}] VARCHAR({})".format(tablename, fieldname, size)
+        sql = "ALTER TABLE [{}] ALTER COLUMN [{}] VARCHAR({})".format(self._tbname, fieldname, size)
         return self.trans_query(sql)
 
-    def truncate(self, tablename:str):
-        return self.trans_query("TRUNCATE TABLE {};".format(tablename))
+    def truncate(self):
+        return self.trans_query("TRUNCATE TABLE {};".format(self._tbname))
 
     def all(self)->list:
         self.query("SELECT * FROM {}".format(self._tbname))
@@ -149,8 +147,8 @@ class Conn(Super):
         else:
             raise Exception("Data needs to be in a list or dictionaty.")
 
-    def bulk_insert(self, tablename:str, field_list:list, data:list):
-        sql = "INSERT INTO dbo.{} ([{}]) VALUES ({})".format(tablename
+    def bulk_insert(self, field_list:list, data:list):
+        sql = "INSERT INTO dbo.{} ([{}]) VALUES ({})".format(self._tbname
             , '],['.join(field_list)
             , ', '.join(["?"]*len(field_list)))
         if data:
@@ -162,9 +160,9 @@ class Conn(Super):
         columns = [column[0] for column in self._cursor.description]
         return columns
 
-    def field_size(self, tablename:str)->dict:
+    def field_size(self)->dict:
         self.open()
-        self.query("SELECT column_name, data_type, character_maximum_length FROM information_schema.columns WHERE table_name='{}'".format(tablename))
+        self.query("SELECT column_name, data_type, character_maximum_length FROM information_schema.columns WHERE table_name='{}'".format(self._tbname))
         field_size = {}
         for row in self._cursor.fetchall():
             field_size[row[0]] = row[2]
