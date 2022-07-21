@@ -1,3 +1,4 @@
+from pandas import ExcelFile
 from storagy.conn import Conn as Super
 from storagy.conn.directory import Conn as DirectoryConn
 from abc import ABC
@@ -145,6 +146,8 @@ class Conn(Super):
         the corresponding letter.
         https://stackoverflow.com/questions/23861680/convert-spreadsheet-number-to-column-letter
         """
+        if col<1:
+            raise Exception("Collumn number should be 1 or bigger. Value '{}' is not valid.".format(col))
         letters = ''
         while col:
             mod = (col - 1) % 26
@@ -209,7 +212,9 @@ class Conn(Super):
 
     def set_range(self, range):
         """
-        ...
+        Indicates the ranges that define
+        the area where the data is on
+        the worksheet.
         """
         _range = (0, 0, 0, 0)
         if type(range) is str:
@@ -243,7 +248,8 @@ class Conn(Super):
         """
         ...
         """
-        return self._handler.nrows()
+        nrows = self._handler.nrows()
+        return nrows if not self._has_header else nrows-1
 
     def get_filepath(self)->str:
         """
@@ -293,23 +299,20 @@ class Conn(Super):
         ...
         """
         _range = self.get_range()
-        print(_range)
         range_size = self.get_range_size()
-        print(range_size)
         first_row = _range[1] if _range[1] else 1
         # if have header
         if self._has_header:
-            print("a")
             # if range is definied
             if range_size[0]:
                 r=[]
-                print(list(range(_range[0], _range[2])))
+                #print(list(range(_range[0], _range[2])))
                 for i in list(range(_range[0], _range[2]+1)):
                     r.append(self._handler.read_cell(row=first_row, col=i))
                 return r
             # if range is NOT definied
             else:
-                return self._handler.read_line(first_row)
+                return self._handler.read_line(0)
         # if have NO header
         else:
             r=[]
@@ -319,7 +322,7 @@ class Conn(Super):
             else:
                 line = self._handler.read_line(first_row)
                 for i, _ in enumerate(line):
-                    r.append(Conn.col2letter(i))
+                    r.append(Conn.col2letter(i+1))
             return r
 
     def rename(self):
@@ -354,15 +357,15 @@ class Conn(Super):
 
     def get_col_names(self):
         """
-        ...
+        Why??
         """
-        ncols = self._handler.ncols
+        ncols = len(self.field_list()) # self._handler.ncols
         if self._has_header:
-            cols = self._handler.row_values(0)
+            cols = self._handler.read_line(0)
             if len(cols)<ncols:
                 cols += [str(i) for i in range(len(cols), ncols)]
             return cols
-        return [str(i) for i in range(0, ncols)]
+        return [str(i) for i in range(1, ncols+1)]
 
     def __parse_row_value(self, row:list, type_list:list):
         return [self.__parse_cell_value(j, v, type_list) for j, v in enumerate(row)]
