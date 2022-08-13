@@ -16,9 +16,6 @@ class Conn(Super):
     def __str__(self)->str:
         return str(self._path)
 
-    def select(self, filter:str=None)->list:
-        return Conn.sources(self._path)
-
     def _connect(self):
         if isdir(self._path) is False:
             raise Exception("Caminho {} nao existe.".format(self._path))
@@ -26,3 +23,6 @@ class Conn(Super):
 
     def _disconnect(self):
         self._handler = None
+
+    def select(self, filter:str=None)->list:
+        return Conn.sources(self._path, filter=filter)
