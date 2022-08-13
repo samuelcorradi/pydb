@@ -6,4 +6,4 @@ src/storagy.egg-info/
 .python-version
 src/storagy/__pycache__/
 src/storagy/conn/__pycache__/
-tests/
+tests/local_*
