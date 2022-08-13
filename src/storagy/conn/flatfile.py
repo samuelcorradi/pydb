@@ -1,11 +1,11 @@
 from __future__ import annotations
+from dataclasses import is_dataclass
 from storagy.conn import Conn as Super
-from storagy.utils import Filepath
 from storagy.conn.directory import Conn as DirectoryConn
 from storagy.filter import Filter
 from io import SEEK_END
-from os import rename, sep
-from os.path import splitext
+from os import mkdir, rename, sep
+from os.path import isdir, isfile, isabs
 import os
 
 class Conn(Super):
@@ -124,7 +124,7 @@ class Conn(Super):
 
     def all(self)->list:
         """
-        Metodo para carregar o dataset.
+        Read all lines from file.
         """
         self.rewind()
         r = []
@@ -137,9 +137,9 @@ class Conn(Super):
 
     def check_content(self, ctn:str)->bool:
         """
-        Verifica se o arquivo possui
-        alguma linha que comece com o 
-        conteudo passado.
+        Checks if the file has
+        any lines that start
+        with the content passed.
         """
         finded = False
         self.rewind()
@@ -151,21 +151,33 @@ class Conn(Super):
         self.rewind()
         return finded
 
-    # TODO: arrumar isso
     def rename(self, newname:str):
-        filepath = self._dir_conn._path.append_file(self._filename)
-        path = Filepath(newname)
-        s = splitext(path)
-        path = s[0]
-        filename = s[1]
-        if path.endswith(sep):
-            return path[:-len(sep)]
-        if not filename:
-            filename = filepath.get_filename()
+        """
+        Rename file can move it to another directory.
+        """
+        if not newname:
+            raise Exception("Invalid name.")
+        elif isfile(newname):
+            raise Exception("File already exists.")
+        elif isdir(newname):
+            nname = self._filename
+            npath = newname
+        else:
+            fullpath = list(os.path.split(newname))
+            nname = fullpath[-1]
+            npath = os.path.join(*fullpath[:-1])
+            if not npath:
+                npath = self._dir_conn._path
+            elif npath and not isabs(newname):
+                npath = os.path.join(self._dir_conn._path, npath)
+        os.makedirs(npath, exist_ok=True)
+        nfilepath = os.path.join(npath, nname)
+        filepath = os.path.join(self._dir_conn._path, self._filename)
         self.disconnect()
-        new_path = Filepath(path + "/" + filename)
-        rename(filepath, new_path)
-        self._filepath = new_path
+        print("File moved from '{}' to '{}'".format(filepath, nfilepath))
+        rename(filepath, nfilepath)
+        self._dir_conn = DirectoryConn(npath)
+        self._filepath = nname
         self.connect()
         return self
 
@@ -207,5 +219,4 @@ class Conn(Super):
                 break
             if v:
                 res_list.append([data[i][j] for j in _cols] if _cols else data[i])
-        # res_list = [[data[i][j] for j in _cols]  for i, v in enumerate(mapper) if v] 
         return res_list
