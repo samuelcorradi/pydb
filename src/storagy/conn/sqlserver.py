@@ -24,14 +24,17 @@ class Conn(Super):
         return pyodbc.connect(Conn.conn_string % (self.host, self.db, self.user, self.pwd))
 
     def _disconnect(self):
-        self.commit()
+        # self.commit()
         self.close()
-        self._handler.close()
+        # self._handler.close()
+        self._handler = None
 
     def open(self):
         if self._cursor:
-            self.commit()
-            self.close()
+            # self.commit()
+            # self.close()
+            pass
+        self.close()
         self._cursor = self._handler.cursor()
 
     def commit(self):

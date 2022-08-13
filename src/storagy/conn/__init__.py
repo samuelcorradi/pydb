@@ -8,6 +8,10 @@ class Conn(ABC):
         self._handler = None
         self.connect()
 
+    def __del__(self):
+        print('Objeto de conexão da classe {} destruído.'.format(self.__class__))
+        self.disconnect()
+
     def connect(self):
         if not self._handler:
             self._handler = self._connect()
