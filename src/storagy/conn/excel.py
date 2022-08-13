@@ -12,6 +12,7 @@ import string
 class Conn(Super):
 
     class ExcelEngine(ABC):
+
         def letter_to_numbers(self, col:str, row:str=''):
             col += row
             matches = re.findall(pattern=r'([A-Za-z]+)([0-9]+)', string=col)
@@ -59,6 +60,9 @@ class Conn(Super):
 
         def write_cell(self, val, line:int=0, col:int=0):
             pass
+
+        def sheet_names(self):
+            return self._wb.sheet_names()
 
     class XLSXEngine(ExcelEngine):
         
@@ -111,23 +115,33 @@ class Conn(Super):
 
         def write_cell(self, value, row:int=1, col:int=1):
             self._wb[self._sheet].cell(column=col, row=row, value=value)
+
+        def sheet_names(self):
+            return self._wb.sheetnames
         
 
     @staticmethod
     def sources(path:str
         , filename:str
         , filter:str=None)->list:
-        filepath = join(path, filename)
-        wb = xlrd.open_workbook(filepath)
-        return [f for f in wb.sheet_names() if not filter or f.startswith(filter)]
+        conn = Conn(path=path
+            , filename=filename
+            , sheet=0)
+        sheet_names = conn.sheet_names()
+        r = [f for f in sheet_names if not filter or f.startswith(filter)]
+        conn = None
+        return r
 
     def __init__(self
         , path:str
         , filename:str
-        , sheet:str
+        , sheet
         , range=None
         , has_header:bool=True
         , encode:str='utf-8'):
+        """
+        sheet can be a name or int position.
+        """
         dir_conn = DirectoryConn(path)
         self._filename = filename
         self._filepath = dir_conn._path.append_file(filename) # join(path, filename)
@@ -137,6 +151,18 @@ class Conn(Super):
         self._encode = encode
         self.set_range(range)
         super().__init__()
+
+    def _connect(self):
+        """
+        ...
+        """
+        return self.load_drive(self._filepath)
+
+    def _disconnect(self):
+        """
+        ...
+        """
+        self._handler = None
 
     @staticmethod
     def col2letter(col:int)->str:
@@ -198,6 +224,9 @@ class Conn(Super):
         _range[2] = _range[2] if type(_range[2]) is int else Conn.col2number(_range[2])
         return tuple(_range)
 
+    def sheet_names(self):
+        return self.get_handler().sheet_names()
+
     def get_range_size(self)->tuple:
         _range = self.get_range()
         return abs(_range[3]-_range[1])+1 if _range[3] else 0\
@@ -237,6 +266,7 @@ class Conn(Super):
         """
         ext = self._check_extension(self._filename)
         engine = None
+        print(ext)
         if ext=='xls':
             engine = self.XLSEngine(self._filepath, self._sheet)
         elif ext=='xlsx':
@@ -261,18 +291,6 @@ class Conn(Super):
         ...
         """
         return self._filename
-
-    def _connect(self):
-        """
-        ...
-        """
-        return self.load_drive(self._filepath)
-
-    def _disconnect(self):
-        """
-        ...
-        """
-        self._handler = None
 
     def get_type_list(self):
         """
