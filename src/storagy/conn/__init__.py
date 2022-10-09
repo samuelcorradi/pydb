@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from storagy.exceptions import ConnectionFail
 
 class Conn(ABC):
     """
@@ -14,7 +15,10 @@ class Conn(ABC):
 
     def connect(self):
         if not self._handler:
-            self._handler = self._connect()
+            try:
+                self._handler = self._connect()
+            except Exception as e:
+                raise ConnectionFail(handler_error=str(e))
 
     def disconnect(self):
         if self._handler:
