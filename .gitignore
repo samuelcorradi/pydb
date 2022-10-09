@@ -1,9 +1,9 @@
 pyproject.toml
-setup.cfg
+/setup.cfg
+/setup.py
 dist/
 src/storagy.egg-info/
 .DS_Store
 .python-version
-src/storagy/__pycache__/
-src/storagy/conn/__pycache__/
-tests/local_*
+__pycache__
+/devtests/
