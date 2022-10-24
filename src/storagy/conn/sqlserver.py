@@ -4,7 +4,7 @@ import pyodbc
 
 class Conn(Super):
 
-    conn_string = 'DRIVER={ODBC Driver 17 for SQL Server};SERVER=%s;DATABASE=%s;UID=%s;PWD=%s'
+    conn_string = 'DRIVER={ODBC Driver 13 for SQL Server};SERVER=%s;DATABASE=%s;UID=%s;PWD=%s'
 
     def __init__(self
         , host:str
